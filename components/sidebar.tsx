@@ -13,7 +13,7 @@ const sidebarLinks = [
   { name: 'Channels', href: '/channels', icon: 'channels' },
   { name: 'Production Board', href: '/production', icon: 'calendar' },
   { name: 'Calendar', href: '/calendar', icon: 'calendar' },
-  { name: 'Team & Workload', href: '/users', icon: 'users' },
+  { name: 'Users', href: '/users', icon: 'users' },
   { name: 'Reports & Analytics', href: '/reports', icon: 'reports' },
   { name: 'Settings', href: '/settings', icon: 'settings' },
 ];

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import type { PromoStatus, PromoType, Priority, Department } from '@/lib/types';
+import { createAdminClient } from '@/lib/supabase/admin';
+import type { PromoStatus, PromoType, Priority, Department, UserRole } from '@/lib/types';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -14,6 +15,29 @@ async function requireUser() {
     data: { user },
   } = await sb.auth.getUser();
   if (!user) throw new Error('You must be signed in to do that.');
+  return { sb, user };
+}
+
+/**
+ * Same as requireUser, but additionally enforces the Administrator role.
+ * User management touches auth accounts, so it is admin-only by design.
+ */
+async function requireAdmin() {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user) throw new Error('You must be signed in to do that.');
+
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profile?.role !== 'Administrator') {
+    throw new Error('Only administrators can manage users.');
+  }
   return { sb, user };
 }
 
@@ -225,24 +249,135 @@ export async function deactivateProgramAction(id: string): Promise<void> {
   revalidatePath('/programs');
 }
 
+/* ------------------------------------------------------------------ */
+/* Users (Administrator-only)                                         */
+/* ------------------------------------------------------------------ */
+
+/** Random readable temporary password (Supabase requires 8+ chars). */
+function tempPassword(): string {
+  const words = ['Sat7', 'Promo', 'Desk', 'Tv', 'Studio', 'Cairo', 'Beirut', 'Air'];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const digits = Math.floor(1000 + Math.random() * 9000);
+  const symbol = '!@#$%&*'[Math.floor(Math.random() * 7)];
+  return `${word}${digits}${symbol}`;
+}
+
+/**
+ * Creates the auth account through the admin API — a DB trigger creates the
+ * matching profiles row automatically (inserting one directly 409s).
+ * Returns the generated temporary password (no email provider is wired).
+ */
 export async function createUserAction(values: {
   name: string;
   email: string;
-  role: string;
-  dept: string;
+  role: UserRole;
+  dept: Department;
   phone?: string;
-}): Promise<void> {
-  const { sb } = await requireUser();
-  const { error } = await sb.from('profiles').insert({
-    full_name: values.name,
-    email: values.email,
-    role: values.role,
-    dept: values.dept,
-    phone: values.phone || null,
-    active: true,
+}): Promise<{ email: string; password: string }> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const email = values.email.trim().toLowerCase();
+  const password = tempPassword();
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: values.name.trim() },
   });
   if (error) throw new Error(error.message);
+  if (!data.user) throw new Error('User creation failed.');
+
+  // The trigger seeds defaults — apply the chosen role/dept/contact details.
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({
+      full_name: values.name.trim(),
+      role: values.role,
+      dept: values.dept,
+      phone: values.phone?.trim() || null,
+      active: true,
+    })
+    .eq('id', data.user.id);
+  if (profileError) throw new Error(profileError.message);
+
   revalidatePath('/users');
+  return { email, password };
+}
+
+export async function updateUserAction(
+  id: string,
+  values: {
+    name: string;
+    role: UserRole;
+    dept: Department;
+    phone?: string;
+    active: boolean;
+  },
+): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('profiles')
+    .update({
+      full_name: values.name.trim(),
+      role: values.role,
+      dept: values.dept,
+      phone: values.phone?.trim() || null,
+      active: values.active,
+    })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/users');
+}
+
+export async function deleteUserAction(id: string): Promise<void> {
+  const { user: caller } = await requireAdmin();
+  if (caller.id === id) {
+    throw new Error('You cannot delete your own account.');
+  }
+
+  const admin = createAdminClient();
+
+  // Keep at least one Administrator on the team.
+  const { count } = await admin
+    .from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('role', 'Administrator')
+    .eq('active', true);
+  const { data: target } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', id)
+    .maybeSingle();
+  if (target?.role === 'Administrator' && (count ?? 0) <= 1) {
+    throw new Error('This is the last administrator — promote someone else first.');
+  }
+
+  // notifications.user_id blocks deletion (no FK cascade) — remove them first.
+  const { error: notifError } = await admin.from('notifications').delete().eq('user_id', id);
+  if (notifError) throw new Error(notifError.message);
+
+  const { error: profileError } = await admin.from('profiles').delete().eq('id', id);
+  if (profileError) throw new Error(profileError.message);
+
+  const { error: authError } = await admin.auth.admin.deleteUser(id);
+  if (authError) throw new Error(authError.message);
+
+  revalidatePath('/users');
+}
+
+/** Sets a new generated password on the auth account. Returns it for display. */
+export async function resetPasswordAction(id: string): Promise<{ password: string }> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const password = tempPassword();
+
+  const { error } = await admin.auth.admin.updateUserById(id, { password });
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/users');
+  return { password };
 }
 
 /* ------------------------------------------------------------------ */
