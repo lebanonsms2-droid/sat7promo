@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ DESIGN TOKENS ============ */
+:root {
+  --bg: 243 245 247;
+  --surface: 255 255 255;
+  --surface-2: 234 238 242;
+  --border: 220 226 232;
+  --text: 22 33 43;
+  --text-dim: 92 107 120;
+  --text-faint: 139 152 165;
+  --red: 225 68 58;
+  --amber: 238 159 46;
+  --teal: 30 158 134;
+  --blue: 62 111 224;
+  --violet: 124 108 224;
+  --red-soft: 252 231 229;
+  --amber-soft: 253 240 218;
+  --teal-soft: 223 243 238;
+  --blue-soft: 228 235 252;
+  --violet-soft: 235 232 252;
+  --sidebar-bg: 18 26 34;
+  --sidebar-text: 184 196 206;
+  --sidebar-active: 27 39 50;
+}
+
+.dark {
+  --bg: 13 19 25;
+  --surface: 20 28 36;
+  --surface-2: 27 37 48;
+  --border: 38 50 61;
+  --text: 231 237 242;
+  --text-dim: 152 166 178;
+  --text-faint: 100 114 128;
+  --red-soft: 58 28 30;
+  --amber-soft: 58 45 20;
+  --teal-soft: 18 49 40;
+  --blue-soft: 24 38 68;
+  --violet-soft: 36 30 63;
+  --sidebar-bg: 10 15 20;
+  --sidebar-text: 138 151 163;
+  --sidebar-active: 24 32 40;
+}
+
+/* ============ BASE ============ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+}
+h1, h2, h3, h4 { font-family: var(--font-display), system-ui, sans-serif; margin: 0; letter-spacing: -0.01em; }
+a { color: inherit; }
+button { font-family: inherit; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgb(var(--border)); border-radius: 8px; }
+
+@layer utilities {
+  .fade-in { animation: fadein 0.25s ease; }
+}
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============ SCROLLBAR ============ */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgb(var(--border)); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--text-dim)); }
+
+/* ============ ANIMATIONS ============ */
+.transition-all { transition: all 0.2s ease; }
+@keyframes slide-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keybles slide-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
