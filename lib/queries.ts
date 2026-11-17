@@ -253,7 +253,7 @@ export async function getNotifications(userId?: string, unreadOnly: boolean = fa
   }
 
   if (unreadOnly) {
-    query = query.eq('read', false);
+    query = query.is('read_at', null);
   }
 
   const { data, error } = await query.order('created_at', { ascending: false });
@@ -266,6 +266,19 @@ export async function getNotifications(userId?: string, unreadOnly: boolean = fa
     time: n.created_at,
     read: !!n.read_at,
   }));
+}
+
+/* ---------- Upcoming deadlines ---------- */
+export async function getUpcomingDeadlines(limit: number = 6) {
+  const sb = createClient();
+  const today = new Date().toISOString().split('T')[0];
+  const { data } = await sb.from('projects')
+    .select('id, project_code, due_date, status, priority, programs(code)')
+    .gte('due_date', today)
+    .neq('status', 'Completed')
+    .order('due_date', { ascending: true })
+    .limit(limit);
+  return (data as any[]) ?? [];
 }
 
 /* ---------- Channel-based project counts ---------- */

@@ -380,6 +380,44 @@ export async function resetPasswordAction(id: string): Promise<{ password: strin
   return { password };
 }
 
+/**
+ * Notification feed. Most seeded notifications are global (user_id = null), so
+ * the service-role client is used to surface them despite row-level security.
+ */
+export async function getNotificationsAction(): Promise<Array<{
+  id: string; title: string; body: string | null; type: string;
+  read: boolean; time: string; projectCode: string | null;
+}>> {
+  await requireUser();
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('notifications')
+    .select('id, title, body, kind, read_at, created_at, projects!notifications_project_id_fkey (project_code)')
+    .order('created_at', { ascending: false })
+    .limit(30);
+  return ((data as any[]) ?? []).map((n) => ({
+    id: n.id,
+    title: n.title ?? n.body ?? '',
+    body: n.body ?? null,
+    type: n.kind ?? 'system',
+    read: !!n.read_at,
+    time: n.created_at,
+    projectCode: n.projects?.[0]?.project_code ?? null,
+  }));
+}
+
+/** Mark all notifications in the feed as read. */
+export async function markNotificationsReadAction(): Promise<void> {
+  await requireUser();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .is('read_at', null);
+  if (error) throw new Error(error.message);
+  revalidatePath('/dashboard');
+}
+
 /* ------------------------------------------------------------------ */
 /* Settings                                                           */
 /* ------------------------------------------------------------------ */

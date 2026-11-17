@@ -3,45 +3,49 @@
 @tailwind utilities;
 
 /* ============ DESIGN TOKENS ============ */
+/* Semantic tokens only — every surface, border and state resolves through
+   these variables so theming is a single-file change (2026 token system). */
 :root {
   --bg: 243 245 247;
   --surface: 255 255 255;
-  --surface-2: 234 238 242;
-  --border: 220 226 232;
+  --surface-2: 238 241 245;
+  --border: 219 225 232;
   --text: 22 33 43;
-  --text-dim: 92 107 120;
-  --text-faint: 139 152 165;
-  --red: 225 68 58;
-  --amber: 238 159 46;
-  --teal: 30 158 134;
-  --blue: 62 111 224;
-  --violet: 124 108 224;
-  --red-soft: 252 231 229;
-  --amber-soft: 253 240 218;
-  --teal-soft: 223 243 238;
-  --blue-soft: 228 235 252;
-  --violet-soft: 235 232 252;
-  --sidebar-bg: 18 26 34;
-  --sidebar-text: 184 196 206;
-  --sidebar-active: 27 39 50;
+  --text-dim: 88 103 117;
+  --text-faint: 92 106 120;
+  --red: 220 62 55;
+  --amber: 226 148 28;
+  --teal: 22 145 122;
+  --blue: 52 98 210;
+  --violet: 116 98 214;
+  --red-soft: 253 233 231;
+  --amber-soft: 253 242 220;
+  --teal-soft: 222 243 237;
+  --blue-soft: 228 236 253;
+  --violet-soft: 236 233 252;
+  --sidebar-bg: 16 24 32;
+  --sidebar-text: 168 182 194;
+  --sidebar-active: 28 40 52;
+  color-scheme: light;
 }
 
 .dark {
-  --bg: 13 19 25;
-  --surface: 20 28 36;
-  --surface-2: 27 37 48;
-  --border: 38 50 61;
-  --text: 231 237 242;
-  --text-dim: 152 166 178;
-  --text-faint: 100 114 128;
-  --red-soft: 58 28 30;
-  --amber-soft: 58 45 20;
-  --teal-soft: 18 49 40;
-  --blue-soft: 24 38 68;
-  --violet-soft: 36 30 63;
-  --sidebar-bg: 10 15 20;
-  --sidebar-text: 138 151 163;
-  --sidebar-active: 24 32 40;
+  --bg: 12 18 24;
+  --surface: 18 26 34;
+  --surface-2: 26 36 46;
+  --border: 37 49 60;
+  --text: 232 238 243;
+  --text-dim: 154 168 181;
+  --text-faint: 132 146 159;
+  --red-soft: 56 27 29;
+  --amber-soft: 56 43 20;
+  --teal-soft: 17 47 39;
+  --blue-soft: 23 37 66;
+  --violet-soft: 35 30 61;
+  --sidebar-bg: 9 14 19;
+  --sidebar-text: 142 156 169;
+  --sidebar-active: 24 33 42;
+  color-scheme: dark;
 }
 
 /* ============ BASE ============ */
@@ -55,24 +59,84 @@ body {
   font-size: 14px;
   line-height: 1.5;
 }
-h1, h2, h3, h4 { font-family: var(--font-display), system-ui, sans-serif; margin: 0; letter-spacing: -0.01em; }
-a { color: inherit; }
+h1, h2, h3, h4 { font-family: var(--font-display), system-ui, sans-serif; margin: 0; letter-spacing: -0.015em; }
+a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgb(var(--border)); border-radius: 8px; }
+::selection { background: rgb(var(--blue) / .25); }
 
-@layer utilities {
-  .fade-in { animation: fadein 0.25s ease; }
+/* Numeric data aligns in tables and KPI cards */
+.tabnums, table td, table th, code, kbd { font-variant-numeric: tabular-nums; }
+
+/* Quiet chrome: thin borders instead of heavy shadows, subtle radius */
+.panel {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border));
+  border-radius: 10px;
 }
-@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.panel-head {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: rgb(var(--text-dim));
+}
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid rgb(var(--border));
+  border-radius: 4px;
+  background: rgb(var(--surface-2));
+  color: rgb(var(--text-dim));
+  font-size: 10px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid rgb(var(--blue));
+  outline-offset: 2px;
+}
+
+/* Status semantics — color carries meaning, never decoration */
+.st-New, .st-Pending { color: rgb(var(--blue)); }
+.st-Assigned, .st-Review { color: rgb(var(--violet)); }
+.st-InProgress, .st-ChangesRequired { color: rgb(var(--amber)); }
+.st-Approved, .st-Completed, .st-Active { color: rgb(var(--teal)); }
+.st-OnHold { color: rgb(var(--text-dim)); }
+.st-Cancelled, .st-Inactive { color: rgb(var(--red)); }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgb(var(--surface-2));
+}
+
+/* Skeleton loading shimmer */
+.skeleton {
+  background: linear-gradient(90deg, rgb(var(--surface-2)) 25%, rgb(var(--border) / .55) 50%, rgb(var(--surface-2)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
 
 /* ============ SCROLLBAR ============ */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgb(var(--border)); border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: rgb(var(--text-dim)); }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--text-faint)); }
 
 /* ============ ANIMATIONS ============ */
-.transition-all { transition: all 0.2s ease; }
+.fade-in { animation: fadein .22s ease both; }
+.slide-up { animation: slide-up .26s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slide-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@keybles slide-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

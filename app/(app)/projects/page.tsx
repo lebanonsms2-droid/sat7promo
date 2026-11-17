@@ -33,9 +33,17 @@ export default function ProjectsPage() {
       setChannels(allChannels);
       setPrograms(allPrograms);
       setUsers(allUsers);
-      await loadProjects();
+      // Deep link from command palette / notifications: /projects?q=PR-2026-00019
+      const q = new URLSearchParams(window.location.search).get('q') || '';
+      if (q) {
+        setFilters((f) => ({ ...f, search: q }));
+        await loadProjects({ ...filters, search: q });
+      } else {
+        await loadProjects();
+      }
     }
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProjects = async (f = filters) => {
