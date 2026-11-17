@@ -1,38 +1,59 @@
-import { createClient } from './supabase/server';
+import { createClient } from './supabase/client';
 import type {
   PromoStatus, PromoType, Priority, UserRole, Department,
-  Profile, Channel, Program, Project, ProjectRow, ProjectHistory, ProjectFile,
+  Profile, Channel, Program, Project, ProjectRow, ProjectHistory, ProjectFile, Settings,
 } from './types';
 
 /* ---------- Reference data ---------- */
 export async function getChannels(): Promise<Channel[]> {
   const sb = createClient();
-  const { data } = await sb.from('channels').select('*').order('sort_order', { ascending: true });
+  const { data } = await sb.from('channels').select('*').order('name', { ascending: true });
   return (data as Channel[]) ?? [];
+}
+
+/** Static department list (kept in sync with the DB CHECK constraint). */
+export function getDepartments(): Department[] {
+  return ['Programming', 'Marketing', 'Production', 'Digital Media', 'Channel Management'];
 }
 
 export async function getPrograms(): Promise<Program[]> {
   const sb = createClient();
-  const { data } = await sb.from('programs').select('*').order('sort_order', { ascending: true });
-  return (data as Program[]) ?? [];
+  const { data } = await sb.from('programs').select('*').order('name', { ascending: true });
+  // DB column is `description`; the UI type calls it `desc`.
+  return ((data as any[]) ?? []).map((p) => ({ ...p, desc: p.description ?? null })) as Program[];
 }
 
 export async function getUsers(): Promise<Profile[]> {
   const sb = createClient();
   const { data } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
-  return (data as Profile[]) ?? [];
+  // DB columns are `full_name` / `avatar_color`; the UI type calls them `name` / `color`.
+  return ((data as any[]) ?? []).map((p) => ({
+    ...p,
+    name: p.full_name ?? '',
+    color: p.avatar_color ?? null,
+  })) as Profile[];
 }
 
 export async function getSettings(): Promise<Settings | null> {
   const sb = createClient();
-  const { data } = await sb.from('settings').select('*').eq('id', 1).single();
-  return (data as Settings) ?? null;
+  const { data } = await sb.from('org_settings').select('*').eq('id', 1).single();
+  if (!data) return null;
+  // DB table is `org_settings` with a slightly different shape than the UI type.
+  return {
+    id: String(data.id),
+    org_name: data.org_name ?? '',
+    whatsapp_enabled: !!data.whatsapp_enabled,
+    email_enabled: !!data.email_enabled,
+    created_at: '',
+    updated_at: '',
+  } as Settings;
 }
 
 /* ---------- Projects ---------- */
 export interface ProjectFilters {
   search?: string;
   status?: string;
+  programId?: string;
   channelId?: string;
   userId?: string;
   priority?: string;
@@ -49,7 +70,8 @@ export async function getProjects(filters: ProjectFilters = {}): Promise<Project
     `)
     .order('request_date', { ascending: false });
 
-  let rows = ((data as any)?.projects || []) as Project[];
+  // PostgREST returns an array of rows (with `programs` embedded), not `{ projects: [...] }`.
+  let rows = ((data as any) ?? []) as Project[];
 
   // Filter by status
   if (filters.status) {
@@ -64,6 +86,11 @@ export async function getProjects(filters: ProjectFilters = {}): Promise<Project
   // Filter by channel
   if (filters.channelId) {
     rows = rows.filter((r: any) => r.channel_ids.includes(filters.channelId));
+  }
+
+  // Filter by program
+  if (filters.programId) {
+    rows = rows.filter((r: any) => r.program_id === filters.programId);
   }
 
   // Filter by user assignment
@@ -108,39 +135,64 @@ export interface DashboardStats {
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   const sb = createClient();
-  const { data } = await sb.from('projects').select('*', { count: 'exact', head: true });
-  const total = (data?.count ?? 0);
+  const head = { count: 'exact' as const, head: true };
 
-  // Count by status
-  const { count: newReq } = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'New');
-  const countPending = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
-  const countAssigned = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'Assigned');
-  const countInProgress = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'In Progress');
-  const countReview = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'Review');
-  const countApproved = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
-  const countCompleted = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'Completed');
+  const totalOf = (q: any): Promise<number> => q.then((r: any) => r.count ?? 0);
+  const countByStatus = (status: string) =>
+    totalOf(sb.from('projects').select('*', head).eq('status', status));
 
   // Overdue projects (due date passed and not completed)
   const today = new Date().toISOString().split('T')[0];
-  const { count: overdue } = await sb.from('projects').select('*', { count: 'exact', head: true }).lte('due_date', today).neq('status', 'Completed');
 
   // Due this week
   const weekFromNow = new Date();
   weekFromNow.setDate(weekFromNow.getDate() + 7);
   const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
-  const { count: dueThisWeek } = await sb.from('projects').select('*', { count: 'exact', head: true }).gte('due_date', today).lte('due_date', weekFromNowStr).neq('status', 'Completed');
+
+  const [
+    total,
+    newReq,
+    pending,
+    assigned,
+    inProgress,
+    review,
+    approved,
+    completed,
+    overdue,
+    dueThisWeek,
+  ] = await Promise.all([
+    totalOf(sb.from('projects').select('*', head)),
+    countByStatus('New'),
+    countByStatus('Pending'),
+    countByStatus('Assigned'),
+    countByStatus('In Progress'),
+    countByStatus('Review'),
+    countByStatus('Approved'),
+    countByStatus('Completed'),
+    totalOf(
+      sb.from('projects').select('*', head).lte('due_date', today).neq('status', 'Completed'),
+    ),
+    totalOf(
+      sb
+        .from('projects')
+        .select('*', head)
+        .gte('due_date', today)
+        .lte('due_date', weekFromNowStr)
+        .neq('status', 'Completed'),
+    ),
+  ]);
 
   return {
     totalProjects: total,
-    newRequests: newReq ?? 0,
-    pendingProjects: countPending ?? 0,
-    assignedProjects: countAssigned ?? 0,
-    inProgress: countInProgress ?? 0,
-    awaitingReview: countReview ?? 0,
-    approved: countApproved ?? 0,
-    completed: countCompleted ?? 0,
-    overdueProjects: overdue ?? 0,
-    dueThisWeek: dueThisWeek ?? 0,
+    newRequests: newReq,
+    pendingProjects: pending,
+    assignedProjects: assigned,
+    inProgress,
+    awaitingReview: review,
+    approved,
+    completed,
+    overdueProjects: overdue,
+    dueThisWeek,
   };
 }
 
@@ -153,7 +205,7 @@ export async function getProjectDetail(id: string): Promise<{ project: ProjectRo
     .select(`
       *,
       programs (
-        id, name, code, desc, season, episodes, language, presenter, prod_company, contact, start_date, end_date
+        id, name, code, description, season, episodes, language, presenter, prod_company, contact, start_date, end_date
       )
     `)
     .eq('id', id)
@@ -172,7 +224,7 @@ export async function getProjectDetail(id: string): Promise<{ project: ProjectRo
 
   // Get project history
   const { data: history, error: histError } = await sb.from('project_history')
-    .select('*, profiles!project_history_changed_by_fkey (name, email)')
+    .select('*, profiles!project_history_changed_by_fkey (full_name, email)')
     .eq('project_id', id)
     .order('created_at', { ascending: false });
 
@@ -185,7 +237,7 @@ export async function getProjectDetail(id: string): Promise<{ project: ProjectRo
 export async function getRecentActivity(limit: number = 10) {
   const sb = createClient();
   const { data, error } = await sb.from('project_history')
-    .select('*, projects(project_code, status), profiles!project_history_changed_by_fkey (name, email)')
+    .select('*, projects(project_code, status), profiles!project_history_changed_by_fkey (full_name, email)')
     .order('created_at', { ascending: false })
     .limit(limit);
   return (data as any[]) ?? [];
@@ -201,11 +253,19 @@ export async function getNotifications(userId?: string, unreadOnly: boolean = fa
   }
 
   if (unreadOnly) {
-    query = query.is('read', null);
+    query = query.eq('read', false);
   }
 
   const { data, error } = await query.order('created_at', { ascending: false });
-  return (data as any[]) ?? [];
+  // DB columns are `kind` / `title` / `body` / `read_at`; the UI type calls them
+  // `type` / `text` / `time` / `read`.
+  return ((data as any[]) ?? []).map((n) => ({
+    ...n,
+    type: n.kind ?? 'system',
+    text: n.title ?? n.body ?? '',
+    time: n.created_at,
+    read: !!n.read_at,
+  }));
 }
 
 /* ---------- Channel-based project counts ---------- */
@@ -235,6 +295,17 @@ export async function getProjectsByChannel() {
 }
 
 /* ---------- Program-based project counts ---------- */
+export async function getStatusCounts(): Promise<Record<string, number>> {
+  const sb = createClient();
+  const { data } = await sb.from('projects').select('status');
+  const counts: Record<string, number> = {};
+  ((data as any[]) ?? []).forEach((row) => {
+    const s = row.status as string;
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  return counts;
+}
+
 export async function getProjectsByProgram() {
   const sb = createClient();
   const { data } = await sb.from('projects').select('program_id, status');

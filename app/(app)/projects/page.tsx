@@ -1,8 +1,10 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { getProjects, getChannels, getPrograms, getUsers } from '@/lib/queries';
+import { PRIORITIES } from '@/lib/types';
 import { StatusBadge, PriorityBadge, Pipeline } from '@/components/ui';
 import { StatCard } from '@/components/ui/StatCard';
-import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Input, Select, SelectItem, SelectTrigger, SelectContent, SelectValue, FormControl, Label } from '@/components/ui';
 
 export default function ProjectsPage() {
@@ -14,6 +16,7 @@ export default function ProjectsPage() {
   const [filters, setFilters] = useState({
     search: '',
     status: '',
+    programId: '',
     channelId: '',
     userId: '',
     priority: '',
@@ -35,14 +38,15 @@ export default function ProjectsPage() {
     loadData();
   }, []);
 
-  const loadProjects = async () => {
-    const result = await getProjects(filters as any);
+  const loadProjects = async (f = filters) => {
+    const result = await getProjects(f as any);
     setProjects(result);
   };
 
   const handleFilterChange = (field: keyof typeof filters, value: string) => {
-    setFilters({ ...filters, [field]: value });
-    loadProjects();
+    const next = { ...filters, [field]: value };
+    setFilters(next);
+    loadProjects(next);
   };
 
   const deleteProject = async (id: string) => {
@@ -63,7 +67,6 @@ export default function ProjectsPage() {
         <Select
           placeholder="Program"
           onValueChange={(v) => handleFilterChange('programId', v)}
-          disabled
         >
           <SelectTrigger>
             <SelectValue />
@@ -79,7 +82,6 @@ export default function ProjectsPage() {
         <Select
           placeholder="Channel"
           onValueChange={(v) => handleFilterChange('channelId', v)}
-          disabled
         >
           <SelectTrigger>
             <SelectValue />
@@ -95,7 +97,6 @@ export default function ProjectsPage() {
         <Select
           placeholder="Priority"
           onValueChange={(v) => handleFilterChange('priority', v)}
-          disabled
         >
           <SelectTrigger>
             <SelectValue />
@@ -111,7 +112,6 @@ export default function ProjectsPage() {
         <Select
           placeholder="Assigned to"
           onValueChange={(v) => handleFilterChange('userId', v)}
-          disabled
         >
           <SelectTrigger>
             <SelectValue />

@@ -1,19 +1,21 @@
+'use client';
+
 import * as React from 'react';
-import { Icon } from './Icon';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Icon } from './ui/Icon';
 
 const sidebarLinks = [
-  { name: 'Dashboard', href: '/(app)', icon: 'dashboard', disabled: false },
-  { name: 'Projects', href: '/(app)/projects', icon: 'projects', disabled: false },
-  { name: 'New Request', href: '/(app)/new', icon: 'plus', disabled: false },
-  { name: 'Programs', href: '/(app)/programs', icon: 'programs', disabled: false },
-  { name: 'Channels', href: '/(app)/channels', icon: 'channels', disabled: false },
-  { name: 'Production Board', href: '/(app)/production', icon: 'calendar', disabled: false },
-  { name: 'Calendar', href: '/(app)/calendar', icon: 'calendar', disabled: false },
-  { name: 'Team & Workload', href: '/(app)/users', icon: 'users', disabled: false },
-  { name: 'Communication', href: '/(app)/communication', icon: 'mail', disabled: false },
-  { name: 'Reports & Analytics', href: '/(app)/reports', icon: 'reports', disabled: false },
-  { name: 'Notifications', href: '/(app)/notifications', icon: 'bell', disabled: false },
-  { name: 'Settings', href: '/(app)/settings', icon: 'settings', disabled: false },
+  { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+  { name: 'Projects', href: '/projects', icon: 'projects' },
+  { name: 'New Request', href: '/new', icon: 'plus' },
+  { name: 'Programs', href: '/programs', icon: 'programs' },
+  { name: 'Channels', href: '/channels', icon: 'channels' },
+  { name: 'Production Board', href: '/production', icon: 'calendar' },
+  { name: 'Calendar', href: '/calendar', icon: 'calendar' },
+  { name: 'Team & Workload', href: '/users', icon: 'users' },
+  { name: 'Reports & Analytics', href: '/reports', icon: 'reports' },
+  { name: 'Settings', href: '/settings', icon: 'settings' },
 ];
 
 interface SidebarProps {
@@ -22,35 +24,47 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
+  const pathname = usePathname();
+
   return (
-    <aside className={`bg-sidebar text-sidebar-text min-w-64 max-w-64 flex flex-col h-screen p-0 transition-all duration-300 ${isCollapsed ? 'pl-0 pr-2' : 'pl-4'}`}>
+    <aside
+      className={`bg-sidebar text-sidebar-text w-64 shrink-0 flex flex-col h-screen transition-all duration-300 ${
+        isCollapsed ? 'hidden' : 'flex'
+      }`}
+    >
       <div className="flex items-center justify-between h-16 border-b border-border px-4">
-        <div className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded bg-blue flex items-center justify-center shrink-0">
             <Icon name="dashboard" size={20} className="text-blue" />
           </div>
-          <span className="text-xl font-display font-bold">SAT-7 Promo Desk</span>
-        </div>
+          <span className="text-lg font-display font-bold truncate">SAT-7 Promo Desk</span>
+        </Link>
         <button
           onClick={onToggle}
           className="p-2 rounded hover:bg-surface-2 transition-colors"
-          aria-label="Toggle sidebar"
+          aria-label="Close sidebar"
         >
-          <Icon name={isCollapsed ? 'plus' : 'minus'} size={20} />
+          <Icon name="minus" size={20} />
         </button>
       </div>
 
       <nav className="flex-1 flex flex-col p-2 overflow-y-auto">
-        <ul className="flex-flex flex flex-col space-y-1">
+        <ul className="flex flex-col space-y-1">
           {sidebarLinks.map((link) => {
-            const isActive = false; // Would need active path tracking
+            const isActive =
+              pathname === link.href ||
+              (link.href !== '/dashboard' && pathname.startsWith(link.href + '/'));
             return (
-              <li
-                key={link.name}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-text text-sm font-medium transition-colors hover:bg-surface-2 ${isActive ? 'bg-surface-2' : ''}`}
-              >
-                <Icon name={link.icon} size={16} className="text-sidebar-text mr-3" />
-                <span>{link.name}</span>
+              <li key={link.name}>
+                <Link
+                  href={link.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-2 ${
+                    isActive ? 'bg-surface-2 text-white' : 'text-sidebar-text'
+                  }`}
+                >
+                  <Icon name={link.icon} size={16} className="shrink-0" />
+                  <span className="truncate">{link.name}</span>
+                </Link>
               </li>
             );
           })}

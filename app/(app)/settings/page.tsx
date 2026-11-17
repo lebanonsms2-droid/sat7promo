@@ -1,18 +1,44 @@
-import { useState } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { getSettings } from '@/lib/queries';
+import { saveSettingsAction } from '@/app/actions';
+import { Label, Input } from '@/components/ui';
 
 export default function SettingsPage() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [whatsappNotifications, setWhatsappNotifications] = useState(false);
   const [orgName, setOrgName] = useState('SAT-7 Promo Desk');
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = () => {
-    console.log('Saving settings:', {
-      theme,
-      emailNotifications,
-      whatsappNotifications,
-      orgName,
-    });
+  useEffect(() => {
+    async function load() {
+      const s = await getSettings();
+      if (s) {
+        setOrgName(s.org_name);
+        setEmailNotifications(s.email_enabled);
+        setWhatsappNotifications(s.whatsapp_enabled);
+      }
+      if (document.documentElement.classList.contains('dark')) setTheme('dark');
+    }
+    load();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      await saveSettingsAction({
+        org_name: orgName,
+        email_enabled: emailNotifications,
+        whatsapp_enabled: whatsappNotifications,
+      });
+      setSaved(true);
+      setError(null);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
 
   const toggleTheme = () => {
@@ -108,7 +134,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Save button */}
-      <div className="mt-8 flex justify-end">
+      <div className="mt-8 flex justify-end items-center gap-3">
+        {saved && <span className="text-sm text-green-600">Settings saved.</span>}
+        {error && <span className="text-sm text-red-600">{error}</span>}
         <button
           onClick={handleSave}
           className="btn btn-primary"

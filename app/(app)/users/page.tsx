@@ -1,6 +1,9 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { getUsers, getDepartments } from '@/lib/queries';
-import { Input, Select, SelectItem, SelectTrigger, SelectContent, Table, TableRow, TableCell, TableHeader } from '@/components/ui';
+import { createUserAction } from '@/app/actions';
+import { Input, Select, SelectItem, SelectTrigger, SelectContent, SelectValue, FormControl, Label, Table, TableRow, TableCell, TableHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 
 export default function TeamPage() {
@@ -27,12 +30,20 @@ export default function TeamPage() {
     loadData();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       if (!form.name) throw new Error('Name is required');
       if (!form.email) throw new Error('Email is required');
 
-      console.log('Saving user:', form);
+      await createUserAction({
+        name: form.name,
+        email: form.email,
+        role: form.role,
+        dept: form.department,
+        phone: form.phone,
+      });
+
+      setUsers(await getUsers());
       setSuccess(true);
       setError(null);
 
@@ -58,7 +69,7 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-surface rounded-lg p-6">
           <h2 className="text-sm uppercase tracking-wide font-semibold text-text-dim mb-4">
-            {form.id ? 'Edit User' : 'Add User'}
+            Add User
           </h2>
           {error && (
             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-4">

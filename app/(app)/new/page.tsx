@@ -1,13 +1,19 @@
+'use client';
+
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { PRIORITIES } from '@/lib/types';
 import { getChannels, getPrograms, getUsers, getDepartments } from '@/lib/queries';
+import { createProjectAction } from '@/app/actions';
 import { PriorityBadge, StatusBadge } from '@/components/ui';
 import { StatCard } from '@/components/ui/StatCard';
-import { Input, Select, SelectItem, SelectTrigger, SelectContent, FormControl, Label } from '@/components/ui';
+import { Input, Select, SelectItem, SelectTrigger, SelectContent, SelectValue, FormControl, Label } from '@/components/ui';
 import { Button } from '@/components/ui';
 
 export default function NewRequestForm() {
   const [formData, setFormData] = useState({
     projectId: '',
+    programCode: '',
     requestDate: new Date().toISOString().split('T')[0],
     requestedBy: '',
     requestingDept: 'Programming' as const,
@@ -24,21 +30,26 @@ export default function NewRequestForm() {
   const [programs, setPrograms] = useState<any[]>([]);
   const [channels, setChannels] = useState<any[]>([]);
   const [depts, setDepts] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [selectedProgram, setSelectedProgram] = useState<string | null>(null);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [assignedUsers, setAssignedUsers] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     async function loadData() {
       const allPrograms = await getPrograms();
       const allChannels = await getChannels();
-      const allDepts = await getDepartments();
+      const allDepts = getDepartments();
+      const allUsers = await getUsers();
       setPrograms(allPrograms);
       setChannels(allChannels);
       setDepts(allDepts);
+      setUsers(allUsers);
     }
     loadData();
   }, []);
@@ -74,14 +85,12 @@ export default function NewRequestForm() {
       if (selectedChannels.length === 0) throw new Error('Select at least one channel');
       if (!formData.deadline) throw new Error('Deadline is required');
 
-      // Prepare project data for submission
-      const projectData = {
-        project_code: `PR-${Date.now()}`,
+      // Create the project server-side (RLS + auth enforced in the action)
+      const created = await createProjectAction({
         program_id: selectedProgram,
         channel_ids: selectedChannels,
         promo_type: formData.promoType,
         priority: formData.priority,
-        status: assignedUsers.length ? 'Assigned' : 'New',
         assigned_user_ids: assignedUsers,
         requested_by: formData.requestedBy,
         requesting_dept: formData.requestingDept,
@@ -90,32 +99,17 @@ export default function NewRequestForm() {
         request_date: formData.requestDate,
         due_date: formData.deadline,
         notes: formData.notes,
-        production: {
-          scriptReceived: false,
-          scriptApproved: false,
-          footageReceived: false,
-          graphicsRequired: false,
-          voiceOverRequired: false,
-          musicRequired: false,
-          editingStarted: false,
-          firstVersion: false,
-          review: false,
-          clientFeedback: false,
-          finalVersion: false,
-          finalApproval: false,
-        },
-      };
+      });
 
-      // In a real implementation, this would call a server action
-      // to create the project in Supabase
-      console.log('Creating project:', projectData);
-      
       setSuccess(true);
+      setSuccessMessage(`Project ${created.project_code} created successfully.`);
       setIsSubmitting(false);
+      router.refresh();
       
       // Reset form
       setFormData({
         projectId: '',
+        programCode: '',
         requestDate: new Date().toISOString().split('T')[0],
         requestedBy: '',
         requestingDept: 'Programming' as const,
@@ -146,7 +140,12 @@ export default function NewRequestForm() {
 
       {success && (
         <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded mb-6">
-          <p>Project created successfully! <a href="/(app)/projects">View your projects</a></p>
+          <p>
+            {successMessage || 'Project created successfully!'}{' '}
+            <a href="/projects" className="underline font-medium">
+              View your projects
+            </a>
+          </p>
         </div>
       )}
 
@@ -190,7 +189,6 @@ export default function NewRequestForm() {
             <Label>Dept</Label>
             <Select
               onValueChange={(v) => setFormData({ ...formData, requestingDept: v })}
-              disabled
             >
               <SelectTrigger>
                 <SelectValue />
@@ -208,7 +206,6 @@ export default function NewRequestForm() {
             <Label>Request Source</Label>
             <Select
               onValueChange={(v) => setFormData({ ...formData, requestSource: v })}
-              disabled
             >
               <SelectTrigger>
                 <SelectValue />
@@ -252,17 +249,11 @@ export default function NewRequestForm() {
             <Label>Promo/Spot Type</Label>
             <Select
               onValueChange={(v) => setFormData({ ...formData, promoType: v })}
-              disabled
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {PRIORITIES.length > 0 ? [] : PRIORITIES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
                 <SelectItem value="TV Promo">TV Promo</SelectItem>
                 <SelectItem value="TV Spot">TV Spot</SelectItem>
                 <SelectItem value="Program Promo">Program Promo</SelectItem>
@@ -275,7 +266,6 @@ export default function NewRequestForm() {
             <Label>Priority</Label>
             <Select
               onValueChange={(v) => setFormData({ ...formData, priority: v })}
-              disabled
             >
               <SelectTrigger>
                 <SelectValue />
@@ -320,7 +310,6 @@ export default function NewRequestForm() {
             <Label>Program</Label>
             <Select
               onValueChange={(v) => handleProgramChange(v)}
-              disabled
             >
               <SelectTrigger>
                 <SelectValue />
@@ -357,7 +346,6 @@ export default function NewRequestForm() {
             <Select
               multiple
               onValueChange={(v) => setSelectedChannels(v)}
-              disabled
             >
               <SelectTrigger>
                 <SelectValue />
@@ -381,19 +369,16 @@ export default function NewRequestForm() {
             </p>
             <Select
               multiple
+              placeholder="Select team members"
               onValueChange={(v) => setAssignedUsers(v)}
-              disabled
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {await getUsers().then((u) => u.map((user: any) => (
+                {users.map((user: any) => (
                   <SelectItem key={user.id} value={user.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{user.name}</span>
-                      <span className="text-xs text-text-faint">({user.role})</span>
-                    </div>
+                    {user.name || user.email} ({user.role})
                   </SelectItem>
                 ))}
               </SelectContent>

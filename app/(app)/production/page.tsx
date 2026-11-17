@@ -1,5 +1,8 @@
-import { STATUSES, PROMO_TYPES, PRIORITIES } from '@/lib/types';
+'use client';
+
+import { STATUSES, PROMO_TYPES, PRIORITIES, type PromoStatus } from '@/lib/types';
 import { getProjects, getChannels, getPrograms } from '@/lib/queries';
+import { updateProjectStatusAction } from '@/app/actions';
 import { StatusBadge, PriorityBadge, Pipeline } from '@/components/ui';
 import { useState, useEffect } from 'react';
 
@@ -33,10 +36,8 @@ export default function ProductionBoard() {
 
   const handleStatusChange = async (projectId: string, newStatus: PromoStatus) => {
     try {
-      console.log(`Moving project ${projectId} to ${newStatus}`);
-      // Would call server action to update status
-      // Would also update project history
-      
+      await updateProjectStatusAction(projectId, newStatus);
+
       // Refresh data
       setProjects(prev => prev.map((p) => p.id === projectId ? { ...p, status: newStatus } : p));
       setColumns(prev =>

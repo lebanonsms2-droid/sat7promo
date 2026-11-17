@@ -1,4 +1,6 @@
-import { useState } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 import { Icon } from '@/components/ui/Icon';
 
 export default function CalendarPage() {

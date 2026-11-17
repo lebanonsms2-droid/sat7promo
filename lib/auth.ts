@@ -11,7 +11,7 @@ export interface SessionUser {
 
 /** Returns the current signed-in user with profile/role, or null. */
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const sb = createClient();
+  const sb = await createClient();
   const { data: { user} } = await sb.auth.getUser();
   if (!user) return null;
 

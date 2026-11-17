@@ -21,19 +21,43 @@ const ICONS: Record<string, string> = {
   upload: 'M12 3v12M6 9l6-6 6 6M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2',
   download: 'M12 3v12M6 11l6 6 6-6M4 21h16',
   mail: 'M22 6l-10 7L2 6M2 4h20v16H2z',
-  whatsapp: 'M21 11.5a8.38 8.38 0 ...',
+  minus: 'M5 12h14',
+  whatsapp: 'M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z',
 };
 
-export function Icon({ name, size = 16 }: { name: string; size?: number }) {
+export function Icon({
+  name,
+  size = 16,
+  className,
+}: {
+  name: string;
+  size?: number;
+  className?: string;
+}) {
   const path = ICONS[name];
+  const sizing: React.CSSProperties = { width: size, height: size };
+
   if (!path) {
-    return <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/></svg>;
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+        style={sizing}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" fill="currentColor" />
+      </svg>
+    );
   }
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      className={`h-${size} w-${size} fill-current`}
+      className={`fill-current ${className ?? ''}`}
+      style={sizing}
       viewBox="0 0 24 24"
+      aria-hidden="true"
     >
       <path d={path} fill="currentColor" />
     </svg>

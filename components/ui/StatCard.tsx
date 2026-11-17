@@ -5,11 +5,12 @@ const ACCENT: Record<string, string> = {
   amber: 'text-amber',
   teal: 'text-teal',
   blue: 'text-blue',
+  violet: 'text-violet',
 };
 
 export function StatCard({
   label, num, sub, accent,
-}: { label: string; num: React.ReactNode; sub?: string; accent?: 'red' | 'amber' | 'teal' | 'blue' }) {
+}: { label: string; num: React.ReactNode; sub?: string; accent?: 'red' | 'amber' | 'teal' | 'blue' | 'violet' }) {
   return (
     <div className="bg-surface border border-rounded-lg shadow-card p-4">
       <div className="text-[11.5px] uppercase tracking-wide font-semibold text-text-dim">{label}</div>

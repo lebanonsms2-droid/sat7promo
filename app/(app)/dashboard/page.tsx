@@ -1,6 +1,8 @@
+'use client';
+
 import { STATUSES, PROMO_TYPES, PRIORITIES, DEPTS } from '@/lib/types';
-import { getDashboardStats, getRecentActivity, getProjectsByChannel, getProjectsByProgram, getUsers } from '@/lib/queries';
-import { StatusBadge, PriorityBadge, Pipeline } from '@/components/ui';
+import { getDashboardStats, getRecentActivity, getProjectsByChannel, getProjectsByProgram, getUsers, getStatusCounts } from '@/lib/queries';
+import { StatusBadge, PriorityBadge, Pipeline, Icon } from '@/components/ui';
 import { StatCard } from '@/components/ui/StatCard';
 import { useEffect, useState } from 'react';
 
@@ -20,6 +22,7 @@ export default function DashboardPage() {
 
   const [channelCounts, setChannelCounts] = useState<Record<string, number>>({});
   const [programCounts, setProgramCounts] = useState<Record<string, number>>({});
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
 
@@ -29,6 +32,7 @@ export default function DashboardPage() {
       setStats(statsResult);
       setChannelCounts(await getProjectsByChannel());
       setProgramCounts(await getProjectsByProgram());
+      setStatusCounts(await getStatusCounts());
       setRecentActivity(await getRecentActivity(5));
       setUsers(await getUsers());
     }
@@ -99,17 +103,14 @@ export default function DashboardPage() {
         <div className="bg-surface rounded-lg p-6 h-full">
           <h2 className="text-sm uppercase tracking-wide font-semibold text-text-dim mb-4">Status Distribution</h2>
           <div className="space-y-3">
-            {STATUSES.map((status) => {
-              const count = (channelCounts[status] || 0);
-              return (
-                <div key={status} className="flex items-center justify-between">
-                  <span className="text-sm text-text-faint">{status}</span>
-                  <span className={`text-sm font-bold st-${status.replace(/\s/g, '')}`}>
-                    {channelCounts[status] || 0}
-                  </span>
-                </div>
-              );
-            })}
+            {STATUSES.map((status) => (
+              <div key={status} className="flex items-center justify-between">
+                <span className="text-sm text-text-faint">{status}</span>
+                <span className={`text-sm font-bold st-${status.replace(/\s/g, '')}`}>
+                  {statusCounts[status] || 0}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

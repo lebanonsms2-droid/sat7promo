@@ -1,8 +1,10 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { getPrograms, getChannels } from '@/lib/queries';
-import { Input, Select, SelectItem, SelectTrigger, SelectContent, FormControl, Label, Table, TableRow, TableCell, TableHeader } from '@/components/ui';
+import { createProgramAction, deactivateProgramAction } from '@/app/actions';
+import { Input, Select, SelectItem, SelectTrigger, SelectContent, SelectValue, FormControl, Label, Table, TableRow, TableCell, TableHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
-import { useNavigate } from 'react-router-dom';
 
 interface ProgramFormValues {
   name: string;
@@ -37,7 +39,6 @@ export default function ProgramsPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     async function loadData() {
@@ -53,14 +54,21 @@ export default function ProgramsPage() {
       if (!form.name) throw new Error('Program name is required');
       if (!form.code) throw new Error('Program code is required');
 
-      if (editingId) {
-        // Update existing program
-        console.log('Updating program:', { id: editingId, ...form });
-      } else {
-        // Create new program
-        console.log('Creating program:', form);
-      }
+      await createProgramAction({
+        name: form.name,
+        code: form.code,
+        description: form.desc,
+        season: form.season,
+        episodes: form.episodes,
+        language: form.language || 'Arabic',
+        presenter: form.presenter ?? undefined,
+        prod_company: form.prodCompany ?? undefined,
+        contact: form.contact ?? undefined,
+        start_date: form.startDate ?? undefined,
+        end_date: form.endDate ?? undefined,
+      });
 
+      setPrograms(await getPrograms());
       setSuccess(true);
       setError(null);
       
@@ -86,9 +94,15 @@ export default function ProgramsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this program?')) {
-      console.log('Deleting program:', id);
-      setSuccess(true);
+    if (confirm('Are you sure you want to deactivate this program?')) {
+      try {
+        await deactivateProgramAction(id);
+        setPrograms(await getPrograms());
+        setSuccess(true);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message);
+      }
     }
   };
 
@@ -185,7 +199,6 @@ export default function ProgramsPage() {
                   onValueChange={(v) =>
                     setForm({ ...form, language: v })
                   }
-                  disabled
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -274,7 +287,6 @@ export default function ProgramsPage() {
                 />
               </div>
             </div>
-          </div>
 
           <div className="mt-6 flex gap-3">
             <Button type="submit" disabled={isEditing}>
@@ -303,6 +315,7 @@ export default function ProgramsPage() {
               Cancel
             </Button>
           </div>
+          </form>
         </div>
 
         {/* Programs Table */}
@@ -325,8 +338,17 @@ export default function ProgramsPage() {
                 </TableCell>
                 <TableCell>{program.code || '—'}</TableCell>
                 <TableCell>
-                  <Button size="sm" variant="outline">
-                    View
+                  <span className={`badge ${program.active !== false ? 'st-Active' : 'st-Inactive'}`}>
+                    {program.active !== false ? 'Active' : 'Inactive'}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => program.active !== false && handleDelete(program.id)}
+                  >
+                    Deactivate
                   </Button>
                 </TableCell>
               </TableRow>

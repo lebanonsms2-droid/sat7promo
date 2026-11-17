@@ -55,7 +55,6 @@ export interface Channel {
   language: string;
   region: string;
   active: boolean;
-  sort_order: number;
   created_at: string;
 }
 
@@ -72,7 +71,7 @@ export interface Program {
   contact: string | null;
   start_date: string | null;
   end_date: string | null;
-  sort_order: number;
+  active?: boolean;
   created_at: string;
 }
 
@@ -131,12 +130,11 @@ export interface ProjectFile {
   id: string;
   project_id: string;
   name: string;
-  file_type: string;
+  kind: string;
   url: string;
+  size_bytes: number | null;
   uploaded_by: string;
   created_at: string;
-  version: number;
-  description: string | null;
 }
 
 export interface AppNotification {
@@ -201,7 +199,7 @@ export const STATUS_STYLE: Record<PromoStatus, { bg: string; fg: string }> = {
   'Changes Required': { bg: 'var(--red-soft)', fg: 'var(--red)' },
   Approved: { bg: 'var(--teal-soft)', fg: 'var(--teal)' },
   Completed: { bg: 'var(--teal-soft)', fg: 'var(--teal)' },
-  On Hold: { bg: 'var(--violet-soft)', fg: 'var(--violet)' },
+  'On Hold': { bg: 'var(--violet-soft)', fg: 'var(--violet)' },
   Cancelled: { bg: 'var(--gray-soft)', fg: 'var(--text-faint)' },
 };
 

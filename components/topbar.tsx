@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Icon } from './Icon';
+import { Icon } from './ui/Icon';
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle?: () => void }) {
   return (

@@ -1,6 +1,9 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { getChannels } from '@/lib/queries';
-import { Input, Select, SelectItem, SelectTrigger, SelectContent, FormControl, Label, Table, TableRow, TableCell, TableHeader } from '@/components/ui';
+import { createChannelAction, deactivateChannelAction } from '@/app/actions';
+import { Input, Select, SelectItem, SelectTrigger, SelectContent, SelectValue, FormControl, Label, Table, TableRow, TableCell, TableHeader } from '@/components/ui';
 import { Button } from '@/components/ui';
 
 interface ChannelFormValues {
@@ -31,12 +34,20 @@ export default function ChannelsPage() {
     loadData();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       if (!form.name) throw new Error('Channel name is required');
       if (!form.code) throw new Error('Channel code is required');
 
-      console.log('Saving channel:', form);
+      await createChannelAction({
+        name: form.name,
+        code: form.code,
+        language: form.language,
+        region: form.region,
+        description: form.description,
+      });
+
+      setChannels(await getChannels());
       setSuccess(true);
       setError(null);
 
@@ -53,10 +64,16 @@ export default function ChannelsPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to deactivate this channel?')) {
-      console.log('Deactivating channel:', id);
-      setSuccess(true);
+      try {
+        await deactivateChannelAction(id);
+        setChannels(await getChannels());
+        setSuccess(true);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message);
+      }
     }
   };
 
@@ -117,7 +134,6 @@ export default function ChannelsPage() {
                   onValueChange={(v) =>
                     setForm({ ...form, language: v })
                   }
-                  disabled
                 >
                   <SelectTrigger>
                     <SelectValue />

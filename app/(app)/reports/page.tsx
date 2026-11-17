@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { getDashboardStats, getProjectsByChannel, getProjectsByProgram, getRecentActivity } from '@/lib/queries';
 import { Icon } from '@/components/ui/Icon';
@@ -80,8 +82,8 @@ export default function ReportsPage() {
                   <div className="w-24 h-2 bg-surface-2 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary rounded-full"
-                      style={{ width: (count / 200) * 100 + '%' }}
-                    /></div>
+                      style={{ width: Math.min(100, (count / 20) * 100) + '%' }}
+                    />
                   </div>
                   <span className="text-sm font-medium">{count}</span>
                 </div>

@@ -1,4 +1,6 @@
 /* ---- Fixed option lists (must match the DB CHECK constraints / enums) ---- */
+import type { PromoStatus, PromoType, Priority, UserRole, Department } from './types';
+
 export const STATUSES: PromoStatus[] = [
   'New', 'Pending', 'Assigned', 'In Progress', 'Review',
   'Changes Required', 'Approved', 'Completed', 'On Hold', 'Cancelled',
@@ -40,7 +42,7 @@ export const STATUS_STYLE: Record<PromoStatus, { bg: string; fg: string }> = {
   'Changes Required': { bg: 'var(--red-soft)', fg: 'var(--red)' },
   Approved: { bg: 'var(--teal-soft)', fg: 'var(--teal)' },
   Completed: { bg: 'var(--teal-soft)', fg: 'var(--teal)' },
-  On Hold: { bg: 'var(--violet-soft)', fg: 'var(--violet)' },
+  'On Hold': { bg: 'var(--violet-soft)', fg: 'var(--violet)' },
   Cancelled: { bg: 'var(--gray-soft)', fg: 'var(--text-faint)' },
 };
 
