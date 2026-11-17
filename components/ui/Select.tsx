@@ -6,6 +6,8 @@ export interface SelectProps extends React.HTMLAttributes<HTMLDivElement> {
   onValueChange?: (value: any) => void;
   /** Controlled selection — pass to prefill (e.g. editing an existing record). */
   value?: string | string[];
+  /** Accessible name (renders aria-label on the native select). */
+  ariaLabel?: string;
   disabled?: boolean;
   placeholder?: string;
   children: React.ReactNode;
@@ -16,7 +18,7 @@ export interface SelectItemProps {
   children: React.ReactNode;
 }
 
-export function Select({ multiple, onValueChange, value, disabled, placeholder, children }: SelectProps) {
+export function Select({ multiple, onValueChange, value, ariaLabel, disabled, placeholder, children }: SelectProps) {
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (multiple) {
       const values = Array.from(e.target.selectedOptions).map((o) => o.value);
@@ -30,6 +32,7 @@ export function Select({ multiple, onValueChange, value, disabled, placeholder, 
     <div className="relative">
       <select
         multiple={multiple}
+        aria-label={ariaLabel}
         onChange={handleChange}
         disabled={disabled}
         {...(value !== undefined ? { value } : { defaultValue: multiple ? undefined : '' })}

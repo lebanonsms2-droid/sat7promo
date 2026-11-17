@@ -106,6 +106,9 @@ button { font-family: inherit; }
 .st-Approved, .st-Completed, .st-Active { color: rgb(var(--teal)); }
 .st-OnHold { color: rgb(var(--text-dim)); }
 .st-Cancelled, .st-Inactive { color: rgb(var(--red)); }
+.pr-Normal { color: rgb(var(--blue)); }
+.pr-High { color: rgb(var(--amber)); }
+.pr-Urgent { color: rgb(var(--red)); }
 .badge {
   display: inline-flex;
   align-items: center;
