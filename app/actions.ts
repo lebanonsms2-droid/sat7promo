@@ -183,32 +183,82 @@ export async function updateProjectStatusAction(
 /* Reference data                                                     */
 /* ------------------------------------------------------------------ */
 
+/* ---------- Channels ---------- */
+
+function friendlyDbError(error: { message: string; code?: string }): Error {
+  if (error.code === '23505') {
+    return new Error('A record with that code already exists. Use a unique code.');
+  }
+  if (error.code === '23503') {
+    return new Error('This record is still used by projects and cannot be deleted.');
+  }
+  return new Error(error.message);
+}
+
 export async function createChannelAction(values: {
   name: string;
   code: string;
   language: string;
   region: string;
-  description?: string;
 }): Promise<void> {
   const { sb } = await requireUser();
   const { error } = await sb.from('channels').insert({
-    name: values.name,
-    code: values.code,
+    name: values.name.trim(),
+    code: values.code.trim().toUpperCase(),
     language: values.language,
-    region: values.region,
+    region: values.region.trim(),
     active: true,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw friendlyDbError(error);
   revalidatePath('/channels');
 }
 
-/** Safe archival — channels are deactivated, never hard-deleted. */
-export async function deactivateChannelAction(id: string): Promise<void> {
+export async function updateChannelAction(
+  id: string,
+  values: { name: string; code: string; language: string; region: string; active: boolean },
+): Promise<void> {
   const { sb } = await requireUser();
-  const { error } = await sb.from('channels').update({ active: false }).eq('id', id);
-  if (error) throw new Error(error.message);
+  const { error } = await sb.from('channels').update({
+    name: values.name.trim(),
+    code: values.code.trim().toUpperCase(),
+    language: values.language,
+    region: values.region.trim(),
+    active: values.active,
+  }).eq('id', id);
+  if (error) throw friendlyDbError(error);
   revalidatePath('/channels');
 }
+
+/** Count projects that reference a channel (channel_ids is an array column). */
+export async function getChannelUsageAction(id: string): Promise<number> {
+  const { sb } = await requireUser();
+  const { data } = await sb.from('projects').select('id, channel_ids');
+  return ((data as any[]) ?? []).filter((p) => (p.channel_ids ?? []).includes(id)).length;
+}
+
+/**
+ * Hard-delete a channel. Because channel_ids is a plain UUID[] with no FK,
+ * we strip the deleted id from every project before removing the row.
+ */
+export async function deleteChannelAction(id: string): Promise<void> {
+  await requireUser();
+  const admin = createAdminClient();
+  const { data: projects } = await admin.from('projects').select('id, channel_ids');
+  const affected = ((projects as any[]) ?? []).filter((p) => (p.channel_ids ?? []).includes(id));
+  for (const p of affected) {
+    const next = (p.channel_ids as string[]).filter((c) => c !== id);
+    const { error } = await admin.from('projects')
+      .update({ channel_ids: next, updated_at: new Date().toISOString() })
+      .eq('id', p.id);
+    if (error) throw friendlyDbError(error);
+  }
+  const { error } = await admin.from('channels').delete().eq('id', id);
+  if (error) throw friendlyDbError(error);
+  revalidatePath('/channels');
+  revalidatePath('/projects');
+}
+
+/* ---------- Programs ---------- */
 
 export async function createProgramAction(values: {
   name: string;
@@ -225,8 +275,8 @@ export async function createProgramAction(values: {
 }): Promise<void> {
   const { sb } = await requireUser();
   const { error } = await sb.from('programs').insert({
-    name: values.name,
-    code: values.code,
+    name: values.name.trim(),
+    code: values.code.trim().toUpperCase(),
     description: values.description || null,
     season: values.season || null,
     episodes: values.episodes || null,
@@ -238,15 +288,68 @@ export async function createProgramAction(values: {
     end_date: values.end_date || null,
     active: true,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw friendlyDbError(error);
   revalidatePath('/programs');
 }
 
-export async function deactivateProgramAction(id: string): Promise<void> {
+export async function updateProgramAction(
+  id: string,
+  values: {
+    name: string; code: string; description?: string; season?: string; episodes?: string;
+    language: string; presenter?: string; prod_company?: string; contact?: string;
+    start_date?: string; end_date?: string; active: boolean;
+  },
+): Promise<void> {
   const { sb } = await requireUser();
-  const { error } = await sb.from('programs').update({ active: false }).eq('id', id);
-  if (error) throw new Error(error.message);
+  const { error } = await sb.from('programs').update({
+    name: values.name.trim(),
+    code: values.code.trim().toUpperCase(),
+    description: values.description || null,
+    season: values.season || null,
+    episodes: values.episodes || null,
+    language: values.language,
+    presenter: values.presenter || null,
+    prod_company: values.prod_company || null,
+    contact: values.contact || null,
+    start_date: values.start_date || null,
+    end_date: values.end_date || null,
+    active: values.active,
+  }).eq('id', id);
+  if (error) throw friendlyDbError(error);
   revalidatePath('/programs');
+}
+
+/** Count projects whose program_id points at this program. */
+export async function getProgramUsageAction(id: string): Promise<number> {
+  const { sb } = await requireUser();
+  const { count } = await sb.from('projects').select('*', { count: 'exact', head: true }).eq('program_id', id);
+  return count ?? 0;
+}
+
+/**
+ * Hard-delete a program. projects.program_id has a FK with no cascade, so
+ * referenced projects must first be reassigned to another program.
+ */
+export async function deleteProgramAction(id: string, reassignToId?: string): Promise<void> {
+  await requireUser();
+  const admin = createAdminClient();
+  const { count } = await admin.from('projects').select('*', { count: 'exact', head: true }).eq('program_id', id);
+
+  if ((count ?? 0) > 0) {
+    if (!reassignToId) {
+      throw new Error(`This program is used by ${count} project(s). Choose another program to reassign them to before deleting.`);
+    }
+    if (reassignToId === id) throw new Error('Choose a different program for reassignment.');
+    const { error: reError } = await admin.from('projects')
+      .update({ program_id: reassignToId, updated_at: new Date().toISOString() })
+      .eq('program_id', id);
+    if (reError) throw friendlyDbError(reError);
+  }
+
+  const { error } = await admin.from('programs').delete().eq('id', id);
+  if (error) throw friendlyDbError(error);
+  revalidatePath('/programs');
+  revalidatePath('/projects');
 }
 
 /* ------------------------------------------------------------------ */
