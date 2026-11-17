@@ -167,7 +167,7 @@ export default function Topbar({
           <button
             onClick={() => { setUserOpen(!userOpen); setNotifOpen(false); }}
             className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-md hover:bg-surface-2 transition-colors focus-ring"
-            aria-label={`Account menu for ${name} (${initials})`}
+            title="Account menu"
           >
             <span className="hidden md:block text-xs text-text-dim max-w-32 truncate">{name}</span>
             <span className="w-8 h-8 rounded-full bg-blue text-white flex items-center justify-center text-xs font-bold">
