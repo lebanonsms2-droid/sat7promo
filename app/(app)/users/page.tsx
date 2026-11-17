@@ -172,11 +172,15 @@ export default function UsersPage() {
   const editing = form.id !== null;
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-display font-bold">Users</h1>
+    <section className="p-4 md:p-6 max-w-[1600px] mx-auto fade-in">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <p className="panel-head mb-1">Administration · Users</p>
+          <h1 className="text-2xl font-display font-bold">Users</h1>
+          <p className="text-xs text-text-faint mt-0.5">Manage accounts, roles, departments and access.</p>
+        </div>
         {users.length > 0 && (
-          <span className="text-xs text-text-faint">{users.length} accounts</span>
+          <span className="text-xs text-text-faint tabnums">{users.length} accounts</span>
         )}
       </div>
 
@@ -217,8 +221,8 @@ export default function UsersPage() {
 
       {isAdmin ? (
         /* ---------------- create / edit form ---------------- */
-        <div className="bg-surface rounded-lg p-6 mb-6">
-          <h2 className="text-sm uppercase tracking-wide font-semibold text-text-dim mb-4">
+        <div className="panel p-6 mb-6">
+          <h2 className="panel-head mb-4">
             {editing ? 'Edit User' : 'Create New User'}
           </h2>
           <form onSubmit={handleSave}>
@@ -323,8 +327,8 @@ export default function UsersPage() {
       )}
 
       {/* ---------------- users table ---------------- */}
-      <div className="bg-surface rounded-lg p-6">
-        <h2 className="text-sm uppercase tracking-wide font-semibold text-text-dim mb-4">
+      <div className="panel p-6">
+        <h2 className="panel-head mb-4">
           All Users
         </h2>
         <div className="overflow-x-auto">
@@ -462,6 +466,6 @@ export default function UsersPage() {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
