@@ -8,6 +8,8 @@ const PROTECTED = [
   '/programs',
   '/channels',
   '/calendar',
+  '/people',
+  '/production',
   '/users',
   '/reports',
   '/settings',

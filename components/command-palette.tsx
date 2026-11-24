@@ -22,6 +22,7 @@ export const NAV_ITEMS: PaletteItem[] = [
   { id: 'channels', label: 'Channels', hint: 'Manage channels', group: 'Navigation', icon: 'channels', href: '/channels' },
   { id: 'production', label: 'Production Board', hint: 'Production workflow', group: 'Navigation', icon: 'calendar', href: '/production' },
   { id: 'calendar', label: 'Calendar', hint: 'Schedule view', group: 'Navigation', icon: 'calendar', href: '/calendar' },
+  { id: 'people', label: 'People', hint: 'Team directory — edit & remove members', group: 'Navigation', icon: 'users', href: '/people' },
   { id: 'users', label: 'Users', hint: 'Manage accounts', group: 'Navigation', icon: 'users', href: '/users' },
   { id: 'reports', label: 'Reports & Analytics', hint: 'Insights and exports', group: 'Navigation', icon: 'reports', href: '/reports' },
   { id: 'settings', label: 'Settings', hint: 'Organization settings', group: 'Navigation', icon: 'settings', href: '/settings' },
