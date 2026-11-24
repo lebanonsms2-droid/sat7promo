@@ -11,9 +11,12 @@ export async function getChannels(): Promise<Channel[]> {
   return (data as Channel[]) ?? [];
 }
 
-/** Static department list (kept in sync with the DB CHECK constraint). */
+/** Department list used across intake forms and member management. */
 export function getDepartments(): Department[] {
-  return ['Programming', 'Marketing', 'Production', 'Digital Media', 'Channel Management'];
+  return [
+    'Broadcast', 'Production', 'Operation', 'Social Media', 'Viewer Support',
+    'Promotion', 'Graphics', 'IT',
+  ];
 }
 
 export async function getPrograms(): Promise<Program[]> {

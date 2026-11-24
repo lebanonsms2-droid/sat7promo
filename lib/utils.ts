@@ -21,7 +21,8 @@ export const ROLES: UserRole[] = [
 ];
 
 export const DEPTS: Department[] = [
-  'Programming', 'Marketing', 'Production', 'Digital Media', 'Channel Management',
+  'Broadcast', 'Production', 'Operation', 'Social Media', 'Viewer Support',
+  'Promotion', 'Graphics', 'IT',
 ];
 
 /* ---- Class maps for badges ---- */

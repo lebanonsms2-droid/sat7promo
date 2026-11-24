@@ -15,7 +15,7 @@ const SOURCES = ['Email', 'Manual Entry', 'Internal Communication', 'Other'] as 
 const emptyForm = {
   requestDate: new Date().toISOString().split('T')[0],
   requestedBy: '',
-  requestingDept: 'Programming' as Department,
+  requestingDept: 'Broadcast' as Department,
   requestSource: 'Email' as (typeof SOURCES)[number],
   requesterEmail: '',
   requesterPhone: '',

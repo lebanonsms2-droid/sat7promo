@@ -25,7 +25,7 @@ const emptyForm = {
   name: '',
   email: '',
   role: 'Viewer' as UserRole,
-  dept: 'Programming' as Department,
+  dept: 'Broadcast' as Department,
   phone: '',
   active: true,
 };
@@ -119,7 +119,7 @@ export default function UsersPage() {
       name: user.name ?? '',
       email: user.email ?? '',
       role: user.role,
-      dept: (user.dept ?? 'Programming') as Department,
+      dept: (user.dept ?? 'Broadcast') as Department,
       phone: user.phone ?? '',
       active: user.active,
     });
@@ -288,6 +288,9 @@ export default function UsersPage() {
                     {departments.map((d) => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
+                    {form.dept && !departments.includes(form.dept) && (
+                      <SelectItem value={form.dept}>{form.dept} (legacy)</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

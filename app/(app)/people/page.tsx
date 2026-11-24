@@ -85,7 +85,7 @@ export default function PeoplePage() {
     setNotice(null); setError(null);
     setEdit({
       id: p.id, name: p.name || '', email: p.email, role: p.role,
-      dept: (p.dept || 'Programming') as Department, phone: p.phone || '', active: p.active,
+      dept: (p.dept || 'Broadcast') as Department, phone: p.phone || '', active: p.active,
     });
   }
 
@@ -255,7 +255,12 @@ export default function PeoplePage() {
                 <Label>Department</Label>
                 <Select ariaLabel="Department" value={edit.dept} onValueChange={(v) => setEdit({ ...edit, dept: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{depts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {depts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    {edit.dept && !depts.includes(edit.dept) && (
+                      <SelectItem value={edit.dept}>{edit.dept} (legacy)</SelectItem>
+                    )}
+                  </SelectContent>
                 </Select>
               </div>
               <div>

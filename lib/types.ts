@@ -30,11 +30,14 @@ export type UserRole =
   | 'Viewer';
 
 export type Department =
-  | 'Programming'
-  | 'Marketing'
+  | 'Broadcast'
   | 'Production'
-  | 'Digital Media'
-  | 'Channel Management';
+  | 'Operation'
+  | 'Social Media'
+  | 'Viewer Support'
+  | 'Promotion'
+  | 'Graphics'
+  | 'IT';
 
 export interface Profile {
   id: string;
@@ -178,7 +181,8 @@ export const ROLES: UserRole[] = [
 ];
 
 export const DEPTS: Department[] = [
-  'Programming', 'Marketing', 'Production', 'Digital Media', 'Channel Management',
+  'Broadcast', 'Production', 'Operation', 'Social Media', 'Viewer Support',
+  'Promotion', 'Graphics', 'IT',
 ];
 
 /* ---- Class maps for badges ---- */
