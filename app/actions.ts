@@ -36,7 +36,7 @@ async function requireAdmin() {
     .single();
 
   if (profile?.role !== 'Administrator') {
-    throw new Error('Only administrators can manage users.');
+    throw new Error('Only administrators can perform this action.');
   }
   return { sb, user };
 }
@@ -144,6 +144,83 @@ export async function createProjectAction(input: NewProjectInput): Promise<{ id:
   revalidatePath('/projects');
   revalidatePath('/dashboard');
   return { id: project.id, project_code };
+}
+
+/** Admin-only edit of the editable fields of an existing project. */
+export async function updateProjectAction(
+  projectId: string,
+  values: {
+    program_id: string;
+    channel_ids: string[];
+    promo_type: PromoType;
+    priority: Priority;
+    assigned_user_ids: string[];
+    requested_by: string;
+    requesting_dept: Department;
+    requester_email: string;
+    requester_phone: string;
+    request_date: string;
+    due_date: string;
+    notes: string;
+  },
+): Promise<void> {
+  const { sb, user } = await requireAdmin();
+
+  const { data: before } = await sb
+    .from('projects')
+    .select('status')
+    .eq('id', projectId)
+    .single();
+
+  const { error } = await sb.from('projects').update({
+    program_id: values.program_id,
+    channel_ids: values.channel_ids,
+    promo_type: values.promo_type,
+    priority: values.priority,
+    assigned_user_ids: values.assigned_user_ids,
+    requested_by: values.requested_by,
+    requesting_dept: values.requesting_dept,
+    requester_email: values.requester_email,
+    requester_phone: values.requester_phone,
+    request_date: values.request_date,
+    due_date: values.due_date,
+    notes: values.notes,
+    updated_at: new Date().toISOString(),
+  }).eq('id', projectId);
+  if (error) throw new Error(error.message);
+
+  // Keep the audit trail: record that an administrator edited the request.
+  await sb.from('project_history').insert({
+    project_id: projectId,
+    changed_by: user.id,
+    from_status: before?.status ?? null,
+    to_status: before?.status ?? null,
+    comment: `Project details updated by ${user.email || 'an administrator'}.`,
+  });
+
+  revalidatePath('/projects');
+  revalidatePath('/dashboard');
+  revalidatePath('/reports');
+}
+
+/** Admin-only hard delete of a project and all of its dependent records. */
+export async function deleteProjectAction(projectId: string): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  // These tables reference projects; remove them explicitly before the parent
+  // (the FK cascade is not relied on so the delete is deterministic).
+  for (const table of ['notifications', 'project_files', 'project_history']) {
+    const { error } = await admin.from(table).delete().eq('project_id', projectId);
+    if (error) throw new Error(error.message);
+  }
+  const { error } = await admin.from('projects').delete().eq('id', projectId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/projects');
+  revalidatePath('/dashboard');
+  revalidatePath('/reports');
+  revalidatePath('/calendar');
 }
 
 export async function updateProjectStatusAction(

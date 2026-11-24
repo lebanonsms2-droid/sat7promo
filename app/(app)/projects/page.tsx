@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { getProjects, getChannels, getPrograms, getUsers } from '@/lib/queries';
-import { PRIORITIES, STATUSES } from '@/lib/types';
-import type { Priority, PromoStatus } from '@/lib/types';
-import { updateProjectStatusAction } from '@/app/actions';
-import { StatusBadge, PriorityBadge, Icon, Button, Input, Select, SelectItem, SelectTrigger, SelectContent, SelectValue } from '@/components/ui';
+import { getProjects, getChannels, getPrograms, getUsers, getDepartments } from '@/lib/queries';
+import { PRIORITIES, STATUSES, PROMO_TYPES } from '@/lib/types';
+import type { Priority, PromoStatus, PromoType, Department } from '@/lib/types';
+import { updateProjectStatusAction, updateProjectAction, deleteProjectAction } from '@/app/actions';
+import { createClient } from '@/lib/supabase/client';
+import { StatusBadge, PriorityBadge, Icon, Button, Input, Select, SelectItem, SelectTrigger, SelectContent, SelectValue, Label } from '@/components/ui';
 
 const PAGE_SIZE = 15;
 const emptyFilters = { search: '', status: '', programId: '', channelId: '', userId: '', priority: '' };
@@ -25,6 +26,17 @@ export default function ProjectsPage() {
   const [detail, setDetail] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [depts, setDepts] = useState<Department[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    program_id: '', channel_ids: [] as string[], promo_type: 'TV Promo' as PromoType,
+    priority: 'Normal' as Priority, assigned_user_ids: [] as string[], requested_by: '',
+    requesting_dept: 'Broadcast' as Department, requester_email: '', requester_phone: '',
+    request_date: '', due_date: '', notes: '',
+  });
+  const [deleting, setDeleting] = useState<any | null>(null);
 
   async function reload(f = filters) {
     setProjects(await getProjects(f as any));
@@ -34,6 +46,10 @@ export default function ProjectsPage() {
     (async () => {
       const [c, p, u] = await Promise.all([getChannels(), getPrograms(), getUsers()]);
       setChannels(c); setPrograms(p); setUsers(u);
+      setDepts(getDepartments());
+      const { data } = await createClient().auth.getUser();
+      const me = u.find((x: any) => x.id === data.user?.id);
+      setIsAdmin(me?.role === 'Administrator');
       const q = new URLSearchParams(window.location.search).get('q') || '';
       if (q) {
         setFilters({ ...emptyFilters, search: q });
@@ -77,6 +93,59 @@ export default function ProjectsPage() {
     finally { setBusy(false); }
   }
 
+  function openEdit(p: any) {
+    setError(null); setNotice(null);
+    setEditing(p);
+    setEditForm({
+      program_id: p.program_id || '',
+      channel_ids: (p.channel_ids || []).slice(),
+      promo_type: p.promo_type || 'TV Promo',
+      priority: p.priority || 'Normal',
+      assigned_user_ids: (p.assigned_user_ids || []).slice(),
+      requested_by: p.requested_by || '',
+      requesting_dept: (p.requesting_dept || 'Broadcast') as Department,
+      requester_email: p.requester_email || '',
+      requester_phone: p.requester_phone || '',
+      request_date: p.request_date || '',
+      due_date: p.due_date || '',
+      notes: p.notes || '',
+    });
+    setDetail(null);
+  }
+
+  function toggleId(field: 'channel_ids' | 'assigned_user_ids', id: string) {
+    setEditForm((f) => ({
+      ...f,
+      [field]: f[field].includes(id) ? f[field].filter((x) => x !== id) : [...f[field], id],
+    }));
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      await updateProjectAction(editing.id, editForm);
+      await reload();
+      setEditing(null);
+      setNotice(`${editing.project_code} was updated.`);
+    } catch (err: any) { setError(err?.message ?? 'Could not save project.'); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setBusy(true); setError(null);
+    try {
+      await deleteProjectAction(deleting.id);
+      await reload();
+      setDeleting(null);
+      setDetail(null);
+      setNotice(`${deleting.project_code} was deleted.`);
+    } catch (err: any) { setError(err?.message ?? 'Could not delete project.'); setDeleting(null); }
+    finally { setBusy(false); }
+  }
+
   return (
     <section className="p-4 md:p-6 max-w-[1600px] mx-auto fade-in">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -91,6 +160,7 @@ export default function ProjectsPage() {
       </div>
 
       {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-5 text-sm">{error}</div>}
+      {notice && <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded mb-5 text-sm flex justify-between gap-3"><span>{notice}</span><button onClick={() => setNotice(null)} className="font-bold hover:underline">Dismiss</button></div>}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -143,10 +213,10 @@ export default function ProjectsPage() {
       {/* Table */}
       <div className="panel overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
+          <table className="w-full min-w-[1250px]">
             <thead>
               <tr className="border-b border-border bg-surface-2/50">
-                {['Project ID', 'Program / Title', 'Status', 'Priority', 'Channels', 'Requester', 'Assigned', 'Due Date', ''].map((h, i) => (
+                {['Project ID', 'Program / Title', 'Status', 'Priority', 'Channels', 'Requester', 'Assigned', 'Due Date', 'Actions'].map((h, i) => (
                   <th key={i} className="p-3 text-left text-[11px] font-bold uppercase tracking-wider text-text-dim whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -189,7 +259,15 @@ export default function ProjectsPage() {
                     {p.due_date ? new Date(p.due_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '—'}
                   </td>
                   <td className="p-3">
-                    <Button size="sm" variant="outline" onClick={() => setDetail(p)}>View</Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" variant="outline" onClick={() => setDetail(p)}>View</Button>
+                      {isAdmin && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => openEdit(p)}>Edit</Button>
+                          <Button size="sm" variant="outline" onClick={() => setDeleting(p)}>Delete</Button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -270,6 +348,131 @@ export default function ProjectsPage() {
                   </div>
                 )}
               </div>
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button onClick={() => openEdit(detail)} className="flex-1">Edit project</Button>
+                  <Button variant="outline" onClick={() => { setDeleting(detail); setDetail(null); }}>Delete</Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit drawer (admin only) */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onMouseDown={() => setEditing(null)}>
+          <form onSubmit={saveEdit} className="h-full w-full max-w-xl bg-surface border-l border-border shadow-popover overflow-y-auto slide-up" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 p-6 border-b border-border sticky top-0 bg-surface z-10">
+              <div>
+                <p className="panel-head mb-1">Administrator · Edit project</p>
+                <h2 className="text-xl font-display font-bold">{editing.project_code}</h2>
+              </div>
+              <button type="button" onClick={() => setEditing(null)} className="p-2 rounded hover:bg-surface-2 text-text-dim focus-ring" aria-label="Close editor"><Icon name="x" size={18} /></button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <Label>Program</Label>
+                  <Select ariaLabel="Program" value={editForm.program_id} onValueChange={(v) => setEditForm({ ...editForm, program_id: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{programs.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.code})</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Promo type</Label>
+                  <Select ariaLabel="Promo type" value={editForm.promo_type} onValueChange={(v) => setEditForm({ ...editForm, promo_type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{PROMO_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Priority</Label>
+                  <Select ariaLabel="Priority" value={editForm.priority} onValueChange={(v) => setEditForm({ ...editForm, priority: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Requested by</Label>
+                  <Input aria-label="Requested by" value={editForm.requested_by} onChange={(e) => setEditForm({ ...editForm, requested_by: e.target.value })} className="bg-transparent" />
+                </div>
+                <div>
+                  <Label>Department</Label>
+                  <Select ariaLabel="Department" value={editForm.requesting_dept} onValueChange={(v) => setEditForm({ ...editForm, requesting_dept: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {depts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      {!depts.includes(editForm.requesting_dept) && <SelectItem value={editForm.requesting_dept}>{editForm.requesting_dept} (legacy)</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Requester email</Label>
+                  <Input aria-label="Requester email" type="email" value={editForm.requester_email} onChange={(e) => setEditForm({ ...editForm, requester_email: e.target.value })} className="bg-transparent" />
+                </div>
+                <div>
+                  <Label>Requester phone</Label>
+                  <Input aria-label="Requester phone" value={editForm.requester_phone} onChange={(e) => setEditForm({ ...editForm, requester_phone: e.target.value })} className="bg-transparent" />
+                </div>
+                <div>
+                  <Label>Request date</Label>
+                  <Input aria-label="Request date" type="date" value={editForm.request_date} onChange={(e) => setEditForm({ ...editForm, request_date: e.target.value })} className="bg-transparent" />
+                </div>
+                <div>
+                  <Label>Due date</Label>
+                  <Input aria-label="Due date" type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="bg-transparent" />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Notes</Label>
+                  <textarea aria-label="Notes" rows={3} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-input placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
+              </div>
+
+              <div className="panel p-4">
+                <div className="flex justify-between mb-3"><h3 className="panel-head">Channels</h3><span className="text-xs text-text-faint tabnums">{editForm.channel_ids.length} selected</span></div>
+                <div className="flex flex-wrap gap-2">
+                  {channels.map((c) => (
+                    <button key={c.id} type="button" aria-pressed={editForm.channel_ids.includes(c.id)} onClick={() => toggleId('channel_ids', c.id)}
+                      className={`badge border transition-colors ${editForm.channel_ids.includes(c.id) ? 'border-blue bg-blue/10 text-blue' : 'border-border text-text-dim'}`}>
+                      {c.code} · {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="panel p-4">
+                <div className="flex justify-between mb-3"><h3 className="panel-head">Assigned team</h3><span className="text-xs text-text-faint tabnums">{editForm.assigned_user_ids.length} assigned</span></div>
+                <div className="flex flex-wrap gap-2">
+                  {users.map((u) => (
+                    <button key={u.id} type="button" aria-pressed={editForm.assigned_user_ids.includes(u.id)} onClick={() => toggleId('assigned_user_ids', u.id)}
+                      className={`badge border transition-colors ${editForm.assigned_user_ids.includes(u.id) ? 'border-blue bg-blue/10 text-blue' : 'border-border text-text-dim'}`}>
+                      {u.name || u.email}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 sticky bottom-0 bg-surface py-4 border-t border-border">
+                <Button type="submit" disabled={busy} className="flex-1">{busy ? 'Saving…' : 'Save changes'}</Button>
+                <Button type="button" variant="outline" onClick={() => setEditing(null)} disabled={busy}>Cancel</Button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={() => setDeleting(null)}>
+          <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-md shadow-popover slide-up" onMouseDown={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-display font-bold mb-2">Delete project?</h3>
+            <p className="text-sm text-text-dim mb-3">
+              <strong>{deleting.project_code}</strong> and its history, notifications and files will be permanently removed. This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setDeleting(null)} disabled={busy}>Cancel</Button>
+              <Button onClick={confirmDelete} disabled={busy}>{busy ? 'Deleting…' : 'Delete project'}</Button>
             </div>
           </div>
         </div>
