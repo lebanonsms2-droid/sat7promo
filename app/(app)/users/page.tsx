@@ -33,7 +33,7 @@ const emptyForm = {
 type FormState = typeof emptyForm;
 type Modal =
   | { kind: 'delete'; user: Profile }
-  | { kind: 'reset'; user: Profile; password?: string };
+  | { kind: 'reset'; user: Profile };
 
 export default function UsersPage() {
   const [users, setUsers] = useState<Profile[]>([]);
@@ -45,6 +45,10 @@ export default function UsersPage() {
   const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string } | null>(null);
   const [modal, setModal] = useState<Modal | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const isAdmin = (() => {
     const me = users.find((u) => u.id === currentUserId);
@@ -146,15 +150,40 @@ export default function UsersPage() {
 
   /* ---------------- reset password ---------------- */
 
-  async function handleReset(user: Profile) {
-    setBusy(true);
+  function openReset(user: Profile) {
+    setResetPassword('');
+    setResetConfirm('');
+    setShowResetPassword(false);
+    setResetError(null);
     setError(null);
+    setNotice(null);
+    setModal({ kind: 'reset', user });
+  }
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (modal?.kind !== 'reset') return;
+    setResetError(null);
+    setError(null);
+
+    if (resetPassword.length < 8) {
+      setResetError('Password must be at least 8 characters.');
+      return;
+    }
+    if (resetPassword !== resetConfirm) {
+      setResetError('Passwords do not match.');
+      return;
+    }
+
+    setBusy(true);
     try {
-      const { password } = await resetPasswordAction(user.id);
-      setModal({ kind: 'reset', user, password });
-    } catch (err: any) {
-      setError(err?.message ?? 'Password reset failed.');
+      await resetPasswordAction(modal.user.id, resetPassword);
       setModal(null);
+      setResetPassword('');
+      setResetConfirm('');
+      flash(`Password updated for ${modal.user.email}.`);
+    } catch (err: any) {
+      setResetError(err?.message ?? 'Password reset failed.');
     } finally {
       setBusy(false);
     }
@@ -368,7 +397,7 @@ export default function UsersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setModal({ kind: 'reset', user })}
+                        onClick={() => openReset(user)}
                         disabled={busy}
                       >
                         Reset Password
@@ -430,43 +459,65 @@ export default function UsersPage() {
       )}
 
       {modal?.kind === 'reset' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-surface rounded-lg p-6 w-full max-w-md shadow-card">
-            <h3 className="text-lg font-display font-bold mb-2">
-              {modal.password ? 'New password generated' : 'Reset password?'}
-            </h3>
-            {modal.password ? (
-              <>
-                <p className="text-sm text-text-dim mb-3">
-                  The password for <strong>{modal.user.email}</strong> is now:
-                </p>
-                <code className="block bg-surface-2 px-3 py-2 rounded text-sm font-mono select-all mb-4">
-                  {modal.password}
-                </code>
-                <div className="flex gap-3 justify-end">
-                  <Button variant="outline" onClick={() => copyText(modal.password!)}>
-                    Copy
-                  </Button>
-                  <Button onClick={() => setModal(null)}>Done</Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-text-dim mb-4">
-                  A new password will be generated for <strong>{modal.user.email}</strong>. The
-                  current password stops working immediately — share the new one with the user.
-                </p>
-                <div className="flex gap-3 justify-end">
-                  <Button variant="outline" onClick={() => setModal(null)} disabled={busy}>
-                    Cancel
-                  </Button>
-                  <Button onClick={() => handleReset(modal.user)} disabled={busy}>
-                    {busy ? 'Generating…' : 'Generate New Password'}
-                  </Button>
-                </div>
-              </>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={() => setModal(null)}>
+          <form onSubmit={handleReset} className="bg-surface border border-border rounded-lg p-6 w-full max-w-md shadow-popover slide-up" onMouseDown={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-display font-bold mb-1">Reset password</h3>
+            <p className="text-xs text-text-faint mb-5">
+              Set a new password for <strong className="text-text-dim">{modal.user.email}</strong>.
+              Their current password stops working immediately.
+            </p>
+
+            {resetError && (
+              <p className="text-xs text-red bg-red-100 p-2.5 rounded mb-4">{resetError}</p>
             )}
-          </div>
+
+            <div className="space-y-4 mb-5">
+              <div>
+                <Label>New password</Label>
+                <div className="relative">
+                  <Input
+                    aria-label="New password"
+                    type={showResetPassword ? 'text' : 'password'}
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                    className="bg-transparent pr-16"
+                    required
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue hover:underline focus-ring px-1"
+                  >
+                    {showResetPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label>Confirm new password</Label>
+                <Input
+                  aria-label="Confirm new password"
+                  type={showResetPassword ? 'text' : 'password'}
+                  value={resetConfirm}
+                  onChange={(e) => setResetConfirm(e.target.value)}
+                  placeholder="Re-enter the password"
+                  autoComplete="new-password"
+                  className="bg-transparent"
+                  required
+                  minLength={8}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button type="button" variant="outline" onClick={() => setModal(null)} disabled={busy}>Cancel</Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? 'Updating…' : 'Update password'}
+              </Button>
+            </div>
+          </form>
         </div>
       )}
     </section>

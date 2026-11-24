@@ -470,17 +470,17 @@ export async function deleteUserAction(id: string): Promise<void> {
   revalidatePath('/users');
 }
 
-/** Sets a new generated password on the auth account. Returns it for display. */
-export async function resetPasswordAction(id: string): Promise<{ password: string }> {
+/** Sets a password chosen by the administrator on the auth account. */
+export async function resetPasswordAction(id: string, password: string): Promise<void> {
   await requireAdmin();
+  if (!password || password.length < 8) {
+    throw new Error('Password must be at least 8 characters.');
+  }
   const admin = createAdminClient();
-  const password = tempPassword();
-
   const { error } = await admin.auth.admin.updateUserById(id, { password });
   if (error) throw new Error(error.message);
 
   revalidatePath('/users');
-  return { password };
 }
 
 /**
